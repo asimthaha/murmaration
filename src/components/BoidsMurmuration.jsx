@@ -64,7 +64,6 @@ class Vector {
 }
 
 // --- Boid Class ---
-// The main "bird" object.
 class Boid {
   constructor(width, height) {
     this.position = new Vector(Math.random() * width, Math.random() * height);
@@ -72,8 +71,6 @@ class Boid {
     this.velocity = new Vector(Math.cos(angle), Math.sin(angle));
     this.velocity.setMag(Math.random() * 2 + 2);
     this.acceleration = new Vector();
-
-    // These will be updated from the React state
     this.maxForce = 0.1;
     this.maxSpeed = 4;
     this.perceptionRadius = 50;
@@ -145,7 +142,6 @@ class Boid {
 
   // Combine rules
   flock(boids, alignWeight, cohesionWeight, separationWeight) {
-    // Update properties from React state (passed in)
     this.separationRadius = this.perceptionRadius * 0.5;
 
     let alignment = this.align(boids);
@@ -180,17 +176,24 @@ class Boid {
   }
 
   draw(ctx) {
+    const boidColor = "#06b6d4"; // Bright Cyan
     const angle = this.velocity.heading();
     ctx.save();
     ctx.translate(this.position.x, this.position.y);
     ctx.rotate(angle);
+
     ctx.beginPath();
     ctx.moveTo(6, 0);
     ctx.lineTo(-3, -3);
     ctx.lineTo(-3, 3);
     ctx.closePath();
-    ctx.fillStyle = "white";
+
+    // Add glow effect
+    ctx.shadowColor = boidColor;
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = boidColor;
     ctx.fill();
+
     ctx.restore();
   }
 }
@@ -205,17 +208,14 @@ export default function BoidsMurmuration() {
   const [perception, setPerception] = useState(50);
   const [maxSpeed, setMaxSpeed] = useState(4);
   const [maxForce, setMaxForce] = useState(0.1);
-  const [showControls, setShowControls] = useState(true);
+  const [showControls, setShowControls] = useState(false);
 
   // --- Refs ---
   const canvasRef = useRef(null);
-  // Use a ref to store the flock array, preventing re-initialization on render
   const flockRef = useRef([]);
-  // Ref to store the animation frame request ID
   const animationFrameRef = useRef(null);
 
   // --- Control Data ---
-  // Using an array to map over for controls UI
   const controls = [
     {
       name: "Boids",
@@ -283,17 +283,14 @@ export default function BoidsMurmuration() {
     const ctx = canvas.getContext("2d");
     const flock = flockRef.current;
 
-    // Semi-transparent background for trails
-    ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
+    // Fade to dark blue (slate-950)
+    ctx.fillStyle = "rgba(2, 6, 23, 0.15)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     for (let boid of flock) {
-      // Update boid properties from React state
       boid.maxSpeed = maxSpeed;
       boid.maxForce = maxForce;
       boid.perceptionRadius = perception;
-
-      // Run simulation logic
       boid.flock(flock, alignment, cohesion, separation);
       boid.update();
       boid.edges(canvas.width, canvas.height);
@@ -301,7 +298,7 @@ export default function BoidsMurmuration() {
     }
 
     animationFrameRef.current = requestAnimationFrame(animate);
-  }, [alignment, cohesion, separation, perception, maxSpeed, maxForce]); // Dependencies
+  }, [alignment, cohesion, separation, perception, maxSpeed, maxForce]);
 
   // --- Initialization and Resize Effect ---
   useEffect(() => {
@@ -311,9 +308,6 @@ export default function BoidsMurmuration() {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-
-      // Re-populate flock only if count changes (handled in boidCount effect)
-      // or if it's the first run
       if (flock.length === 0) {
         for (let i = 0; i < boidCount; i++) {
           flock.push(new Boid(canvas.width, canvas.height));
@@ -323,17 +317,12 @@ export default function BoidsMurmuration() {
 
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
-
-    // Start animation loop
     animationFrameRef.current = requestAnimationFrame(animate);
-
-    // Cleanup
     return () => {
       window.removeEventListener("resize", resizeCanvas);
       cancelAnimationFrame(animationFrameRef.current);
-      // Don't clear flock here, let the boidCount effect handle it
     };
-  }, [animate, boidCount]); // Rerun on boidCount change is handled by next effect
+  }, [animate, boidCount]);
 
   // --- Effect for Boid Count Changes ---
   useEffect(() => {
@@ -342,27 +331,48 @@ export default function BoidsMurmuration() {
 
     const currentCount = flockRef.current.length;
     if (boidCount > currentCount) {
-      // Add boids
       for (let i = 0; i < boidCount - currentCount; i++) {
         flockRef.current.push(new Boid(canvas.width, canvas.height));
       }
     } else if (boidCount < currentCount) {
-      // Remove boids
       flockRef.current = flockRef.current.slice(0, boidCount);
     }
   }, [boidCount]);
 
   return (
-    <div className="relative w-full h-screen bg-black">
+    <div className="relative w-full h-screen bg-slate-950">
       <canvas ref={canvasRef} className="block w-full h-full" />
 
       {/* --- Controls Panel --- */}
       {showControls && (
-        <div className="absolute top-4 left-4 w-full max-w-xs p-6 bg-gray-900/70 text-white backdrop-blur-md border border-gray-700 rounded-lg shadow-xl">
-          <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-gray-600">
+        <div className="absolute top-4 right-4 w-full max-w-xs p-6 bg-slate-900/70 text-white backdrop-blur-md border border-slate-700 rounded-lg shadow-xl">
+          {/* Close Button ('X') */}
+          <button
+            onClick={() => setShowControls(false)}
+            className="absolute top-3 right-3 p-1 text-slate-400 hover:text-white"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-6 h-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+
+          {/* Header */}
+          <h2 className="text-xl font-semibold mb-4 pb-2 border-b border-slate-600">
             Flock Controls
           </h2>
 
+          {/* Sliders */}
           <div className="space-y-4">
             {controls.map((control) => (
               <div key={control.name} className="control-group">
@@ -374,6 +384,7 @@ export default function BoidsMurmuration() {
                     )}
                   </span>
                 </label>
+                {/* Custom styled slider */}
                 <input
                   type="range"
                   min={control.min}
@@ -381,18 +392,11 @@ export default function BoidsMurmuration() {
                   step={control.step}
                   value={control.value}
                   onChange={(e) => control.set(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-sm"
+                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-cyan-500 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-cyan-500"
                 />
               </div>
             ))}
           </div>
-
-          <button
-            onClick={() => setShowControls(false)}
-            className="w-full mt-6 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 text-white text-sm rounded-md transition-colors"
-          >
-            Hide Controls
-          </button>
         </div>
       )}
 
@@ -400,9 +404,23 @@ export default function BoidsMurmuration() {
       {!showControls && (
         <button
           onClick={() => setShowControls(true)}
-          className="absolute bottom-4 left-4 px-5 py-2.5 bg-gray-900/70 text-white text-sm font-medium backdrop-blur-md border border-gray-700 rounded-lg shadow-xl hover:bg-gray-800/70 transition-colors"
+          className="absolute top-4 right-4 p-2.5 bg-slate-900/70 text-white backdrop-blur-md border border-slate-700 rounded-lg shadow-xl hover:border-cyan-500 hover:text-cyan-400 transition-colors"
         >
-          Show Controls
+          <span className="sr-only">Show Controls</span>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={1.5}
+            stroke="currentColor"
+            className="w-6 h-6"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
+            />
+          </svg>
         </button>
       )}
     </div>
